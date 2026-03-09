@@ -1,0 +1,136 @@
+@import "tailwindcss";
+
+:root {
+  --background: #061218;
+  --surface: #0e2029;
+  --foreground: #e6f6f6;
+  --muted-foreground: #9ec2c1;
+  --accent: #2de2a7;
+  --accent-strong: #1ecf95;
+  --warning: #ff9f43;
+  --danger: #ff6b6b;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-space-grotesk);
+  --font-mono: var(--font-jetbrains-mono);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-space-grotesk), "Segoe UI", sans-serif;
+}
+
+.aurora-bg {
+  background:
+    radial-gradient(circle at 15% 20%, rgba(45, 226, 167, 0.25), transparent 38%),
+    radial-gradient(circle at 85% 10%, rgba(13, 174, 255, 0.25), transparent 32%),
+    radial-gradient(circle at 50% 95%, rgba(255, 159, 67, 0.2), transparent 36%),
+    linear-gradient(145deg, #07151c 0%, #0a1d27 45%, #0d2734 100%);
+}
+
+.glass-card {
+  backdrop-filter: blur(18px);
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.1) 0%,
+    rgba(255, 255, 255, 0.03) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.lift-hover {
+  transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
+}
+
+.lift-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 22px 35px rgba(0, 0, 0, 0.25);
+  border-color: rgba(45, 226, 167, 0.5);
+}
+
+.fade-up {
+  animation: fadeUp 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.zoom-in {
+  animation: zoomIn 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.float-orb {
+  animation: floatOrb 6.5s ease-in-out infinite;
+}
+
+.loading-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.loading-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    100deg,
+    rgba(255, 255, 255, 0) 20%,
+    rgba(255, 255, 255, 0.18) 48%,
+    rgba(255, 255, 255, 0) 80%
+  );
+  animation: shimmer 1.25s linear infinite;
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(26px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes zoomIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes floatOrb {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-16px) scale(1.03);
+  }
+}
+
+@keyframes shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-up,
+  .zoom-in,
+  .float-orb,
+  .loading-shimmer::after {
+    animation: none !important;
+  }
+}
