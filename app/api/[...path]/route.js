@@ -1,4 +1,5 @@
 const API_PROXY_TARGET = process.env.API_PROXY_TARGET || "http://127.0.0.1:8000";
+const REDIRECT_STATUS = new Set([301, 302, 303, 307, 308]);
 
 async function proxyRequest(req, { params }) {
   try {
@@ -19,17 +20,51 @@ async function proxyRequest(req, { params }) {
     if (accept) headers.set("accept", accept);
     if (cookie) headers.set("cookie", cookie);
 
-    const init = {
+    const baseInit = {
       method: req.method,
       headers,
       redirect: "manual",
     };
 
+    let bodyBuffer;
     if (req.method !== "GET" && req.method !== "HEAD") {
-      init.body = await req.arrayBuffer();
+      bodyBuffer = await req.arrayBuffer();
     }
 
-    const upstream = await fetch(targetUrl, init);
+    const callUpstream = (url, method = req.method) => {
+      const init = {
+        ...baseInit,
+        method,
+      };
+
+      if (method !== "GET" && method !== "HEAD") {
+        init.body = bodyBuffer;
+      }
+
+      return fetch(url, init);
+    };
+
+    let upstream;
+
+    try {
+      upstream = await callUpstream(targetUrl);
+    } catch (error) {
+      // Some FastAPI routers canonicalize slash paths; retry once with trailing slash.
+      if (!targetUrl.endsWith("/")) {
+        upstream = await callUpstream(`${targetUrl}/`);
+      } else {
+        throw error;
+      }
+    }
+
+    if (REDIRECT_STATUS.has(upstream.status)) {
+      const location = upstream.headers.get("location");
+      if (location) {
+        const redirectUrl = new URL(location, targetUrl).toString();
+        const redirectMethod = upstream.status === 303 ? "GET" : req.method;
+        upstream = await callUpstream(redirectUrl, redirectMethod);
+      }
+    }
     const responseHeaders = new Headers(upstream.headers);
     responseHeaders.delete("content-encoding");
     responseHeaders.delete("content-length");
