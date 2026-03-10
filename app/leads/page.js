@@ -162,58 +162,64 @@ export default function LeadsPage() {
             </div>
 
             <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
-                <thead>
-                  <tr className="border-b border-white/10 text-slate-300">
-                    <th className="px-4 py-3 text-left font-medium">Name</th>
-                    <th className="px-4 py-3 text-left font-medium">Phone</th>
-                    <th className="px-4 py-3 text-left font-medium">Location</th>
-                    <th className="px-4 py-3 text-left font-medium">Budget</th>
-                    <th className="px-4 py-3 text-left font-medium">AI Score</th>
-                    <th className="px-4 py-3 text-left font-medium">Priority</th>
-                    <th className="px-4 py-3 text-left font-medium">AI Reason</th>
-                    <th className="text-left p-2">AI</th>
+              <table className="w-full border rounded-lg overflow-hidden">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="p-3 text-left">Name</th>
+                    <th className="p-3 text-left">Phone</th>
+                    <th className="p-3 text-left">Location</th>
+                    <th className="p-3 text-left">Budget</th>
+                    <th className="p-3 text-left">AI Score</th>
+                    <th className="p-3 text-left">Priority</th>
+                    <th className="p-3 text-left">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {leads.map((lead, index) => (
+                  {leads.map((lead) => (
                     <tr
-                      key={lead.id ?? `${lead.phone ?? "lead"}-${index}`}
-                      className="border-b border-white/8 text-slate-100 transition hover:bg-white/5"
+                      key={lead.id}
+                      className="border-t hover:bg-gray-50"
                     >
-                      <td className="p-2">
+                      <td className="p-3 font-medium">
                         <Link
                           href={`/leads/${lead.id}`}
-                          className="text-blue-600 underline"
+                          className="text-blue-600"
                         >
                           {lead.name}
                         </Link>
                       </td>
-                      <td className="px-4 py-3">{lead.phone || "-"}</td>
-                      <td className="px-4 py-3">{lead.location || "-"}</td>
-                      <td className="px-4 py-3">{lead.budget || "-"}</td>
-                      <td className="p-2 text-blue-600 font-bold">
+                      <td className="p-3">{lead.phone}</td>
+                      <td className="p-3">{lead.location}</td>
+                      <td className="p-3">{lead.budget}</td>
+
+                      <td className="p-3">
+                        <span className="font-bold text-blue-600">
                         {lead.ai_score}
+                        </span>
                       </td>
-                      <td className="p-2">
-                        {lead.ai_priority}
+
+                      <td className="p-3">
+                        <span className={`px-2 py-1 rounded text-sm
+${lead.ai_priority === "High"
+? "bg-red-100 text-red-600"
+: "bg-yellow-100 text-yellow-600"}`}>
+                          {lead.ai_priority}
+                        </span>
                       </td>
-                      <td className="p-2 text-sm text-gray-600">
-                        {lead.ai_reason}
-                      </td>
-                      <td className="p-2">
+
+                      <td className="p-3">
                         <button
-                          onClick={() => handleGenerateFollowup(lead.id)}
+                          onClick={()=>handleGenerateFollowup(lead.id)}
                           className="bg-green-600 text-white px-3 py-1 rounded"
                         >
-                          Generate Follow-Up
+                          AI Follow-Up
                         </button>
                       </td>
                     </tr>
                   ))}
                   {!leads.length ? (
                     <tr>
-                      <td className="px-4 py-5 text-sm text-slate-400" colSpan={8}>
+                      <td className="p-3 text-sm text-gray-600" colSpan={7}>
                         No leads found.
                       </td>
                     </tr>
