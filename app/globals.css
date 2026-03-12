@@ -91,8 +91,15 @@
   box-sizing: border-box;
 }
 
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
 body {
   font-family: var(--font-space-grotesk), "Segoe UI", sans-serif;
+  overscroll-behavior: none;
 }
 
 .aurora-bg {
@@ -152,6 +159,63 @@ body {
     rgba(255, 255, 255, 0) 80%
   );
   animation: shimmer 1.25s linear infinite;
+}
+
+.app-shell-bg {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(56, 189, 248, 0.15), transparent 34%),
+    radial-gradient(circle at 0% 100%, rgba(99, 102, 241, 0.16), transparent 36%),
+    radial-gradient(circle at 45% 12%, rgba(14, 165, 233, 0.07), transparent 42%),
+    linear-gradient(165deg, #f8fafc 0%, #f1f5f9 52%, #eef2ff 100%);
+}
+
+.app-card {
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(8px);
+}
+
+.brand-gradient-text {
+  background: linear-gradient(95deg, #0284c7 0%, #2563eb 45%, #7c3aed 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.section-kicker {
+  color: #0369a1;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.section-title {
+  color: #0f172a;
+  font-size: clamp(1.6rem, 1.4rem + 0.8vw, 2.25rem);
+  font-weight: 650;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.panel-title {
+  color: #0f172a;
+  font-size: 1.06rem;
+  font-weight: 620;
+}
+
+.muted-copy {
+  color: #475569;
+  font-size: 0.93rem;
+}
+
+.metric-value {
+  color: #0f172a;
+  font-size: clamp(1.8rem, 1.4rem + 1.1vw, 2.45rem);
+  font-weight: 650;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
 }
 
 @keyframes fadeUp {

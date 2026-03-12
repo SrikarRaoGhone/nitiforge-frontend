@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { loginUser } from "@/lib/auth";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -11,6 +12,13 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      router.push("/dashboard");
+    }
+  }, [router]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -21,6 +29,14 @@ export default function LoginPage() {
       const data = await loginUser(identifier, password);
 
       localStorage.setItem("token", data.access_token);
+      const companyName =
+        data?.company_name ||
+        data?.company?.name ||
+        data?.user?.company_name ||
+        data?.user?.company?.name;
+      if (companyName) {
+        localStorage.setItem("company_name", companyName);
+      }
 
       router.push("/dashboard");
     } catch (err) {
@@ -48,7 +64,7 @@ export default function LoginPage() {
             <div className="relative z-10 flex h-full flex-col justify-between fade-up">
               <div>
                 <p className="mb-5 inline-flex rounded-full border border-emerald-300/40 bg-emerald-300/15 px-3 py-1 text-xs font-semibold tracking-[0.16em] text-emerald-200">
-                  NITIFORGE CRM
+                  CRM SUITE
                 </p>
                 <h1 className="max-w-md text-5xl font-semibold leading-[1.05] text-white">
                   Turn leads into real momentum.
@@ -126,6 +142,10 @@ export default function LoginPage() {
                 >
                   {isSubmitting ? "Signing in..." : "Login"}
                 </button>
+
+                <Link href="/signup">
+                  Create a company account
+                </Link>
               </form>
             </div>
           </section>
