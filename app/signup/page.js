@@ -72,6 +72,7 @@ export default function SignupPage() {
         role: "admin",
       });
       localStorage.setItem("company_name", company);
+      localStorage.setItem("role", "admin");
 
       try {
         const loginData = await autoLogin(email, password);
@@ -85,6 +86,9 @@ export default function SignupPage() {
             company;
           if (companyName) {
             localStorage.setItem("company_name", companyName);
+          }
+          if (loginData?.role) {
+            localStorage.setItem("role", loginData.role);
           }
           router.push("/dashboard");
           return;

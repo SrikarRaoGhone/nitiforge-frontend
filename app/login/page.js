@@ -37,6 +37,9 @@ export default function LoginPage() {
       if (companyName) {
         localStorage.setItem("company_name", companyName);
       }
+      if (data?.role) {
+        localStorage.setItem("role", data.role);
+      }
 
       router.push("/dashboard");
     } catch (err) {
