@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { getDashboardSummary, getLeadSources, getPipelineData } from "@/lib/dashboard";
+import { getDashboardSummary, getHighRiskDeals, getLeadSources, getPipelineData } from "@/lib/dashboard";
+import { getRevenueForecast } from "@/lib/analytics";
+import { getCurrentUser } from "@/lib/auth";
 import AuthGuard from "@/components/AuthGuard";
 import Layout from "@/components/Layout";
 
@@ -12,16 +14,31 @@ export default function DashboardPage() {
   const [stats, setStats] = useState(null);
   const [pipeline, setPipeline] = useState([]);
   const [leadSources, setLeadSources] = useState([]);
+  const [highRiskDeals, setHighRiskDeals] = useState([]);
+  const [forecast, setForecast] = useState(null);
+  const [role, setRole] = useState("");
   const [error, setError] = useState("");
 
   const loadData = async () => {
-    const summary = await getDashboardSummary();
-    const pipe = await getPipelineData();
-    const sources = await getLeadSources();
+    const [summary, pipe, sources, me, forecastData] = await Promise.all([
+      getDashboardSummary(),
+      getPipelineData(),
+      getLeadSources(),
+      getCurrentUser(),
+      getRevenueForecast(),
+    ]);
+    const resolvedRole = String(me?.role || "").toLowerCase();
+    const riskDeals =
+      ["admin", "manager", "superadmin", "super_admin"].includes(resolvedRole)
+        ? await getHighRiskDeals()
+        : [];
 
     setStats(summary);
     setPipeline(pipe);
     setLeadSources(Array.isArray(sources) ? sources : []);
+    setHighRiskDeals(Array.isArray(riskDeals) ? riskDeals : []);
+    setForecast(forecastData || null);
+    setRole(resolvedRole);
   };
 
   useEffect(() => {
@@ -139,6 +156,70 @@ export default function DashboardPage() {
               </ResponsiveContainer>
             </div>
           </div>
+
+          <div className="mt-8 rounded-xl border bg-white p-6 shadow">
+            <h2 className="mb-3 font-semibold">AI Revenue Forecast</h2>
+
+            {forecast ? (
+              <div className="space-y-5">
+                <p>
+                  Projected Revenue: ₹{forecast.projected_revenue}
+                </p>
+
+                <div>
+                  <h3 className="mb-3 text-sm font-medium text-slate-600">Revenue Forecast by Stage</h3>
+                  <ResponsiveContainer width="100%" height={260}>
+                    <BarChart data={Array.isArray(forecast.stages) ? forecast.stages : []}>
+                      <XAxis dataKey="stage" />
+                      <YAxis />
+                      <Tooltip formatter={(value) => [`₹${value}`, "Revenue"]} />
+                      <Bar dataKey="amount" fill="#14b8a6" radius={[8, 8, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-slate-500">Revenue forecast is not available right now.</p>
+            )}
+          </div>
+
+          {["admin", "manager", "superadmin", "super_admin"].includes(role) ? (
+            <div className="mt-8 rounded-2xl border border-rose-100 bg-white p-6 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-900">High Risk Deals</h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Deals that need manager intervention now.
+                  </p>
+                </div>
+                <span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-medium text-rose-700">
+                  {highRiskDeals.length} flagged
+                </span>
+              </div>
+
+              {!highRiskDeals.length ? (
+                <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                  No high risk deals right now.
+                </div>
+              ) : (
+                <div className="mt-4 space-y-3">
+                  {highRiskDeals.map((deal) => (
+                    <div
+                      key={deal.id}
+                      className="rounded-xl border border-rose-100 bg-gradient-to-r from-rose-50 to-white p-4"
+                    >
+                      <p className="font-semibold text-slate-900">
+                        {deal.name} <span className="text-slate-400">-</span> <span className="text-rose-700">{deal.stage || "unknown"}</span>
+                      </p>
+                      <p className="mt-1 text-sm text-slate-600">
+                        {(Array.isArray(deal.reasons) ? deal.reasons : []).join(" - ") || "High deal risk detected"}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : null}
         </div>
       </Layout>
     </AuthGuard>

@@ -104,7 +104,7 @@ export default function CopilotPage() {
 
       setResponse(res?.data?.answer || "No answer returned.");
     } catch (err) {
-      if (err?.response?.status === 404) {
+      if (err?.response?.status === 404 || err?.response?.status === 500) {
         try {
           if (isTotalLeadsQuestion(trimmed)) {
             const leads = await getLeads();

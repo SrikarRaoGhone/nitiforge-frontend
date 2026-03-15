@@ -4,16 +4,32 @@ import { useCallback, useEffect, useState } from "react";
 import Layout from "@/components/Layout";
 import AuthGuard from "@/components/AuthGuard";
 import { useParams } from "next/navigation";
-import { getLeads, generateFollowup, getLeadActivities, getLeadInsights, updateLead } from "@/lib/leads";
+import { generateFollowup, generateMeetingNotes, getDealRisk, getLeadActivities, getLeadInsights, getLeadResearch, getLeads, updateLead } from "@/lib/leads";
 
 export default function LeadDetailPage() {
   const { id } = useParams();
+  const formatActivityLabel = (type) => {
+    const labels = {
+      meeting_notes: "AI Meeting Notes",
+      lead_created: "Lead Created",
+      ai_scored: "AI Scored",
+      lead_assigned: "Lead Assigned",
+    };
+    return labels[type] || String(type || "").replace(/_/g, " ");
+  };
 
   const [lead, setLead] = useState(null);
   const [activities, setActivities] = useState([]);
   const [followup, setFollowup] = useState("");
   const [insights, setInsights] = useState(null);
+  const [research, setResearch] = useState(null);
+  const [risk, setRisk] = useState(null);
+  const [notes, setNotes] = useState("");
+  const [summary, setSummary] = useState("");
   const [insightsError, setInsightsError] = useState("");
+  const [researchError, setResearchError] = useState("");
+  const [riskError, setRiskError] = useState("");
+  const [meetingNotesError, setMeetingNotesError] = useState("");
   const [editing, setEditing] = useState(false);
   const [saveError, setSaveError] = useState("");
 
@@ -64,6 +80,45 @@ export default function LeadDetailPage() {
       setSaveError("");
     } catch (err) {
       setSaveError(err?.message || "Unable to save lead details.");
+    }
+  };
+
+  const loadResearch = async () => {
+    try {
+      const data = await getLeadResearch(id);
+      setResearch(data);
+      setResearchError("");
+    } catch (err) {
+      setResearch(null);
+      setResearchError(err?.message || "Unable to generate AI lead research right now.");
+    }
+  };
+
+  const generateMeetingSummary = async () => {
+    if (!notes.trim()) {
+      setMeetingNotesError("Enter meeting notes or a call transcript.");
+      return;
+    }
+
+    try {
+      const res = await generateMeetingNotes(id, notes);
+      setSummary(res?.summary || "");
+      setMeetingNotesError("");
+      await fetchActivities();
+    } catch (err) {
+      setSummary("");
+      setMeetingNotesError(err?.message || "Unable to generate meeting summary right now.");
+    }
+  };
+
+  const loadRisk = async () => {
+    try {
+      const data = await getDealRisk(id);
+      setRisk(data);
+      setRiskError("");
+    } catch (err) {
+      setRisk(null);
+      setRiskError(err?.message || "Unable to analyze deal risk right now.");
     }
   };
 
@@ -250,6 +305,107 @@ export default function LeadDetailPage() {
           </section>
 
           <section className="app-card rounded-2xl p-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="panel-title">AI Lead Research</h2>
+                <p className="muted-copy mt-1">Generate a structured sales brief before the next interaction.</p>
+              </div>
+
+              <button
+                onClick={loadResearch}
+                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-500"
+              >
+                Generate Lead Research
+              </button>
+            </div>
+
+            {researchError ? <p className="mt-3 text-sm text-rose-600">{researchError}</p> : null}
+
+            {research ? (
+              <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <h3 className="text-sm font-semibold text-slate-900">Lead Summary</h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-700">{research.lead_summary || "-"}</p>
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <h3 className="text-sm font-semibold text-slate-900">Customer Profile</h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-700">{research.customer_profile || "-"}</p>
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <h3 className="text-sm font-semibold text-slate-900">Sales Strategy</h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-700">{research.sales_strategy || "-"}</p>
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <h3 className="text-sm font-semibold text-slate-900">Questions to Ask</h3>
+                  <ul className="mt-2 space-y-2 text-sm text-slate-700">
+                    {(Array.isArray(research.questions_to_ask) ? research.questions_to_ask : []).map((question) => (
+                      <li key={question} className="rounded-lg bg-white px-3 py-2">
+                        {question}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            ) : null}
+          </section>
+
+          <section className="app-card rounded-2xl p-6">
+            <h2 className="panel-title mb-3">AI Meeting Notes</h2>
+
+            <textarea
+              className="min-h-36 w-full rounded-xl border border-slate-200 bg-white p-3 text-slate-900 outline-none transition focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
+              placeholder="Paste meeting notes or call transcript"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+
+            <button
+              onClick={generateMeetingSummary}
+              className="mt-3 rounded-lg bg-blue-600 px-4 py-2 text-white transition hover:bg-blue-500"
+            >
+              Generate Summary
+            </button>
+
+            {meetingNotesError ? <p className="mt-3 text-sm text-rose-600">{meetingNotesError}</p> : null}
+
+            {summary ? (
+              <div className="mt-4 rounded-xl bg-gray-100 p-4 text-sm leading-6 text-slate-700">
+                {summary}
+              </div>
+            ) : null}
+          </section>
+
+          <section className="app-card rounded-2xl p-6">
+            <h2 className="panel-title mb-3">Deal Risk Detection</h2>
+
+            <button
+              onClick={loadRisk}
+              className="rounded-lg bg-red-600 px-4 py-2 text-white transition hover:bg-red-500"
+            >
+              Analyze Deal Risk
+            </button>
+
+            {riskError ? <p className="mt-3 text-sm text-rose-600">{riskError}</p> : null}
+
+            {risk ? (
+              <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
+                <h3 className="font-semibold text-slate-900">
+                  Risk Level: {risk.risk_level}
+                </h3>
+
+                <ul className="mt-2 space-y-2 text-sm text-slate-700">
+                  {(Array.isArray(risk.reasons) ? risk.reasons : []).map((reason, index) => (
+                    <li key={`${reason}-${index}`}>• {reason}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </section>
+
+          <section className="app-card rounded-2xl p-6">
             <h2 className="panel-title mb-3">Activity Timeline</h2>
 
             {!activities.length ? (
@@ -258,7 +414,9 @@ export default function LeadDetailPage() {
               <div className="space-y-2">
                 {activities.map((a) => (
                   <div key={a.id} className="rounded-lg border border-slate-200 bg-white p-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">{a.activity_type}</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
+                      {formatActivityLabel(a.activity_type)}
+                    </p>
                     <p className="mt-1 text-sm text-slate-800">{a.description}</p>
                   </div>
                 ))}
