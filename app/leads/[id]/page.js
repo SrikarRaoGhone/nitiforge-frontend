@@ -4,10 +4,20 @@ import { useCallback, useEffect, useState } from "react";
 import Layout from "@/components/Layout";
 import AuthGuard from "@/components/AuthGuard";
 import { useParams } from "next/navigation";
-import { generateFollowup, generateMeetingNotes, getDealRisk, getLeadActivities, getLeadInsights, getLeadResearch, getLeads, updateLead } from "@/lib/leads";
+import { generateFollowup, generateMeetingNotes, getDealRisk, getHealthScore, getLeadActivities, getLeadInsights, getLeadResearch, getLeads, updateLead } from "@/lib/leads";
 
 export default function LeadDetailPage() {
   const { id } = useParams();
+  const formatCurrency = (value) => {
+    const amount = Number(value || 0);
+    if (!amount) return "-";
+    return `Rs ${amount.toLocaleString("en-IN")}`;
+  };
+  const getHealthMeta = (score) => {
+    if (score >= 80) return { label: "Healthy", badge: "bg-emerald-100 text-emerald-700", dot: "bg-emerald-500" };
+    if (score >= 50) return { label: "Watch", badge: "bg-amber-100 text-amber-700", dot: "bg-amber-500" };
+    return { label: "At Risk", badge: "bg-rose-100 text-rose-700", dot: "bg-rose-500" };
+  };
   const formatActivityLabel = (type) => {
     const labels = {
       meeting_notes: "AI Meeting Notes",
@@ -24,6 +34,7 @@ export default function LeadDetailPage() {
   const [insights, setInsights] = useState(null);
   const [research, setResearch] = useState(null);
   const [risk, setRisk] = useState(null);
+  const [health, setHealth] = useState(null);
   const [notes, setNotes] = useState("");
   const [summary, setSummary] = useState("");
   const [insightsError, setInsightsError] = useState("");
@@ -47,14 +58,24 @@ export default function LeadDetailPage() {
     setActivities(data);
   }, [id]);
 
+  const loadHealth = useCallback(async () => {
+    try {
+      const data = await getHealthScore(id);
+      setHealth(data?.health_score ?? null);
+    } catch {
+      setHealth(null);
+    }
+  }, [id]);
+
   useEffect(() => {
     const load = async () => {
       await fetchLead();
       await fetchActivities();
+      await loadHealth();
     };
 
     load();
-  }, [fetchActivities, fetchLead]);
+  }, [fetchActivities, fetchLead, loadHealth]);
 
   const handleFollowup = async () => {
     const data = await generateFollowup(id);
@@ -75,7 +96,13 @@ export default function LeadDetailPage() {
 
   const handleSave = async () => {
     try {
-      await updateLead(id, lead);
+      const result = await updateLead(id, lead);
+      if (result?.lead) {
+        setLead(result.lead);
+      } else {
+        await fetchLead();
+      }
+      await loadHealth();
       setEditing(false);
       setSaveError("");
     } catch (err) {
@@ -133,6 +160,7 @@ export default function LeadDetailPage() {
       </AuthGuard>
     );
   }
+  const healthMeta = getHealthMeta(Number(health || 0));
 
   return (
     <AuthGuard>
@@ -154,7 +182,7 @@ export default function LeadDetailPage() {
               </button>
             </div>
 
-            <div className="mt-6 grid gap-4 text-sm sm:grid-cols-2 xl:grid-cols-4">
+            <div className="mt-6 grid gap-4 text-sm sm:grid-cols-2 xl:grid-cols-6">
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                 <p className="text-slate-500">Phone</p>
                 <p className="mt-1 font-medium text-slate-900">{lead.phone || "-"}</p>
@@ -166,6 +194,16 @@ export default function LeadDetailPage() {
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                 <p className="text-slate-500">Budget</p>
                 <p className="mt-1 font-medium text-slate-900">{lead.budget || "-"}</p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-slate-500">Deal Value</p>
+                <p className="mt-1 font-medium text-slate-900">{formatCurrency(lead.deal_value)}</p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-slate-500">Conversion Probability</p>
+                <p className="mt-1 font-medium text-slate-900">
+                  {lead.conversion_probability != null ? `${lead.conversion_probability}%` : "-"}
+                </p>
               </div>
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                 <p className="text-slate-500">Stage</p>
@@ -230,6 +268,27 @@ export default function LeadDetailPage() {
                 onChange={(e) => setLead({ ...lead, location: e.target.value })}
               />
 
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <input
+                  type="number"
+                  min="0"
+                  className="rounded-lg border border-slate-200 p-2.5 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
+                  placeholder="Deal Value"
+                  value={lead.deal_value ?? ""}
+                  onChange={(e) => setLead({ ...lead, deal_value: e.target.value ? Number(e.target.value) : null })}
+                />
+
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  className="rounded-lg border border-slate-200 p-2.5 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
+                  placeholder="Conversion Probability"
+                  value={lead.conversion_probability ?? ""}
+                  onChange={(e) => setLead({ ...lead, conversion_probability: e.target.value ? Number(e.target.value) : null })}
+                />
+              </div>
+
               <div className="mt-4 flex items-center gap-2">
                 <button
                   onClick={handleSave}
@@ -248,6 +307,25 @@ export default function LeadDetailPage() {
               {saveError ? <p className="mt-3 text-sm text-rose-600">{saveError}</p> : null}
             </section>
           )}
+
+          <section className="app-card rounded-2xl p-6">
+            <h2 className="panel-title mb-3">Lead Health Score</h2>
+
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <p className="text-2xl font-bold text-slate-900">
+                {health != null ? `${health} / 100` : "-"}
+              </p>
+              <div className="mt-3 flex items-center gap-2">
+                <span className={`h-2.5 w-2.5 rounded-full ${healthMeta.dot}`} />
+                <span className={`rounded-full px-2.5 py-1 text-sm font-medium ${healthMeta.badge}`}>
+                  {healthMeta.label}
+                </span>
+              </div>
+              <p className="mt-3 text-sm text-slate-600">
+                Status: {healthMeta.label}
+              </p>
+            </div>
+          </section>
 
           <section className="grid grid-cols-1 gap-5 xl:grid-cols-3">
             <div className="app-card rounded-2xl p-6 xl:col-span-2">
@@ -428,3 +506,4 @@ export default function LeadDetailPage() {
     </AuthGuard>
   );
 }
+

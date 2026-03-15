@@ -59,6 +59,12 @@ const writeStageOverride = (leadId, stage) => {
   localStorage.setItem(PIPELINE_STAGE_OVERRIDES_KEY, JSON.stringify(current));
 };
 
+const getHealthMeta = (score) => {
+  if (score >= 80) return { label: "Healthy", icon: "green" };
+  if (score >= 50) return { label: "Watch", icon: "yellow" };
+  return { label: "At Risk", icon: "red" };
+};
+
 export default function PipelinePage() {
   const [leads, setLeads] = useState([]);
   const [error, setError] = useState("");
@@ -197,7 +203,17 @@ export default function PipelinePage() {
                                 draggableId={lead.id.toString()}
                                 index={index}
                               >
-                                {(provided, snapshot) => (
+                                {(provided, snapshot) => {
+                                  const healthScore = Number(lead.health_score || 0);
+                                  const healthMeta = getHealthMeta(healthScore);
+                                  const healthClass =
+                                    healthMeta.icon === "green"
+                                      ? "text-emerald-700"
+                                      : healthMeta.icon === "yellow"
+                                        ? "text-amber-700"
+                                        : "text-rose-700";
+
+                                  return (
                                   <div
                                     ref={provided.innerRef}
                                     {...provided.draggableProps}
@@ -212,8 +228,12 @@ export default function PipelinePage() {
                                     <p className="mt-2 text-xs font-medium text-cyan-700">
                                       Score: {lead.ai_score ?? "-"}
                                     </p>
+                                    <p className={`mt-1 text-xs font-medium ${healthClass}`}>
+                                      Health: {lead.health_score ?? "-"} {healthMeta.label}
+                                    </p>
                                   </div>
-                                )}
+                                  );
+                                }}
                               </Draggable>
                             ))}
 
