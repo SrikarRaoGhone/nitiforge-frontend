@@ -43,7 +43,7 @@ export default function Layout({ children }) {
   const canAccessAdmin =
     role === "admin" || role === "superadmin" || role === "super_admin";
   const canAccessTeam =
-    role === "admin" || role === "superadmin" || role === "super_admin";
+    role === "admin" || role === "manager" || role === "superadmin" || role === "super_admin";
 
   const menu = [
     {

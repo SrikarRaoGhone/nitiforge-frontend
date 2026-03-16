@@ -3,14 +3,17 @@
 import Layout from "@/components/Layout";
 import { useCallback, useEffect, useState } from "react";
 import { getUsers, createUser } from "@/lib/users";
+import { getCurrentUser } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 
 export default function TeamPage() {
   const router = useRouter();
   const [users, setUsers] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("sales");
+  const [managerId, setManagerId] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -32,6 +35,32 @@ export default function TeamPage() {
     loadUsers();
   }, [loadUsers]);
 
+  useEffect(() => {
+    const loadMe = async () => {
+      try {
+        const data = await getCurrentUser();
+        setCurrentUser(data);
+        if (String(data?.role || "").toLowerCase() === "manager") {
+          setManagerId(String(data?.id || ""));
+        }
+      } catch {
+        setCurrentUser(null);
+      }
+    };
+
+    loadMe();
+  }, []);
+
+  const currentRole = String(currentUser?.role || "").toLowerCase();
+  const managerOptions = users.filter((user) =>
+    ["manager", "admin", "superadmin", "super_admin"].includes(String(user?.role || "").toLowerCase()),
+  );
+  const canAssignManager = currentRole === "admin" || currentRole === "superadmin" || currentRole === "super_admin";
+  const availableRoles =
+    currentRole === "manager"
+      ? ["sales"]
+      : ["sales", "manager", "admin"];
+
   const handleCreate = async (e) => {
     e.preventDefault();
     setError("");
@@ -43,10 +72,14 @@ export default function TeamPage() {
         email,
         password: "123456",
         role,
+        manager_id: role === "sales" ? (managerId ? Number(managerId) : null) : null,
       });
 
       setName("");
       setEmail("");
+      if (currentRole !== "manager") {
+        setManagerId("");
+      }
 
       await loadUsers();
     } catch (err) {
@@ -72,7 +105,7 @@ export default function TeamPage() {
         onSubmit={handleCreate}
         className="bg-white p-6 rounded shadow mb-6"
       >
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-4 gap-4">
           <input
             placeholder="Name"
             value={name}
@@ -92,9 +125,25 @@ export default function TeamPage() {
             onChange={(e)=>setRole(e.target.value)}
             className="border p-2"
           >
-            <option value="sales">Sales</option>
-            <option value="manager">Manager</option>
-            <option value="admin">Admin</option>
+            {availableRoles.map((roleOption) => (
+              <option key={roleOption} value={roleOption}>
+                {roleOption.charAt(0).toUpperCase() + roleOption.slice(1)}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={managerId}
+            onChange={(e)=>setManagerId(e.target.value)}
+            className="border p-2"
+            disabled={role !== "sales" || (!canAssignManager && currentRole === "manager")}
+          >
+            <option value="">Manager</option>
+            {managerOptions.map((user) => (
+              <option key={user.id} value={user.id}>
+                {user.name}
+              </option>
+            ))}
           </select>
         </div>
 
@@ -113,6 +162,7 @@ export default function TeamPage() {
               <th className="p-3 text-left">Name</th>
               <th className="p-3 text-left">Email</th>
               <th className="p-3 text-left">Role</th>
+              <th className="p-3 text-left">Manager</th>
             </tr>
           </thead>
 
@@ -122,6 +172,7 @@ export default function TeamPage() {
                 <td className="p-3">{user.name}</td>
                 <td className="p-3">{user.email}</td>
                 <td className="p-3 capitalize">{user.role}</td>
+                <td className="p-3">{user.manager_name || "-"}</td>
               </tr>
             ))}
           </tbody>

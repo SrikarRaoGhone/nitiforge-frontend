@@ -21,15 +21,18 @@ export default function DashboardPage() {
   const [error, setError] = useState("");
 
   const loadData = async () => {
-    const [summary, pipe, sources, me, forecastData, salesData] = await Promise.all([
+    const [summary, pipe, sources, me, forecastData] = await Promise.all([
       getDashboardSummary(),
       getPipelineData(),
       getLeadSources(),
       getCurrentUser(),
       getRevenueForecast(),
-      getSalesPerformance(),
     ]);
     const resolvedRole = String(me?.role || "").toLowerCase();
+    const salesData =
+      ["admin", "manager", "superadmin", "super_admin"].includes(resolvedRole)
+        ? await getSalesPerformance()
+        : [];
     const riskDeals =
       ["admin", "manager", "superadmin", "super_admin"].includes(resolvedRole)
         ? await getHighRiskDeals()
@@ -224,49 +227,51 @@ export default function DashboardPage() {
             </div>
           ) : null}
 
-          <div className="mt-8 rounded-2xl border bg-white p-6 shadow">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-semibold text-slate-900">Sales Performance</h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  Leaderboard by closed deals and active pipeline ownership.
-                </p>
+          {["admin", "manager", "superadmin", "super_admin"].includes(role) ? (
+            <div className="mt-8 rounded-2xl border bg-white p-6 shadow">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-900">Sales Performance</h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Leaderboard by closed deals and active pipeline ownership.
+                  </p>
+                </div>
               </div>
-            </div>
 
-            {!salesPerformance.length ? (
-              <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
-                No sales performance data available.
-              </div>
-            ) : (
-              <div className="mt-4 grid gap-3 md:grid-cols-2">
-                {salesPerformance.map((agent, index) => (
-                  <div
-                    key={agent.user_id}
-                    className="rounded-xl border border-slate-200 bg-slate-50 p-4"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm text-slate-400">#{index + 1}</p>
-                        <p className="font-semibold text-slate-900">{agent.agent}</p>
+              {!salesPerformance.length ? (
+                <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                  No sales performance data available.
+                </div>
+              ) : (
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  {salesPerformance.map((agent, index) => (
+                    <div
+                      key={agent.user_id}
+                      className="rounded-xl border border-slate-200 bg-slate-50 p-4"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm text-slate-400">#{index + 1}</p>
+                          <p className="font-semibold text-slate-900">{agent.agent}</p>
+                        </div>
+                        <div className="text-right text-sm text-slate-600">
+                          <p>{agent.closed_deals} closed deals</p>
+                          <p>{agent.total_leads} total leads</p>
+                        </div>
                       </div>
-                      <div className="text-right text-sm text-slate-600">
-                        <p>{agent.closed_deals} closed deals</p>
-                        <p>{agent.total_leads} total leads</p>
-                      </div>
+                      <p className="mt-3 text-sm text-slate-500">
+                        Pipeline Value: {new Intl.NumberFormat("en-IN", {
+                          style: "currency",
+                          currency: "INR",
+                          maximumFractionDigits: 0,
+                        }).format(Number(agent.pipeline_value || 0))}
+                      </p>
                     </div>
-                    <p className="mt-3 text-sm text-slate-500">
-                      Pipeline Value: {new Intl.NumberFormat("en-IN", {
-                        style: "currency",
-                        currency: "INR",
-                        maximumFractionDigits: 0,
-                      }).format(Number(agent.pipeline_value || 0))}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : null}
         </div>
       </Layout>
     </AuthGuard>
