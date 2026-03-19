@@ -5,6 +5,8 @@ import Layout from "@/components/Layout";
 import AuthGuard from "@/components/AuthGuard";
 import { useParams } from "next/navigation";
 import { generateFollowup, generateMeetingNotes, getDealRisk, getHealthScore, getLeadActivities, getLeadInsights, getLeadResearch, getLeads, updateLead } from "@/lib/leads";
+import { assignProject, getProjects } from "@/lib/projects";
+import { createWhatsAppLink, getCommunicationLogs, sendEmail, sendSMS } from "@/lib/communication";
 
 export default function LeadDetailPage() {
   const { id } = useParams();
@@ -24,23 +26,32 @@ export default function LeadDetailPage() {
       lead_created: "Lead Created",
       ai_scored: "AI Scored",
       lead_assigned: "Lead Assigned",
+      sms_sent: "SMS Sent",
+      email_sent: "Email Sent",
+      whatsapp_sent: "WhatsApp Logged",
     };
     return labels[type] || String(type || "").replace(/_/g, " ");
   };
 
   const [lead, setLead] = useState(null);
   const [activities, setActivities] = useState([]);
+  const [communicationLogs, setCommunicationLogs] = useState([]);
   const [followup, setFollowup] = useState("");
+  const [message, setMessage] = useState("");
+  const [subject, setSubject] = useState("");
   const [insights, setInsights] = useState(null);
   const [research, setResearch] = useState(null);
   const [risk, setRisk] = useState(null);
   const [health, setHealth] = useState(null);
+  const [projects, setProjects] = useState([]);
   const [notes, setNotes] = useState("");
   const [summary, setSummary] = useState("");
   const [insightsError, setInsightsError] = useState("");
   const [researchError, setResearchError] = useState("");
   const [riskError, setRiskError] = useState("");
   const [meetingNotesError, setMeetingNotesError] = useState("");
+  const [communicationError, setCommunicationError] = useState("");
+  const [communicationStatus, setCommunicationStatus] = useState("");
   const [editing, setEditing] = useState(false);
   const [saveError, setSaveError] = useState("");
 
@@ -58,6 +69,24 @@ export default function LeadDetailPage() {
     setActivities(data);
   }, [id]);
 
+  const fetchCommunicationLogs = useCallback(async () => {
+    try {
+      const data = await getCommunicationLogs(id);
+      setCommunicationLogs(Array.isArray(data) ? data : []);
+    } catch {
+      setCommunicationLogs([]);
+    }
+  }, [id]);
+
+  const loadProjects = useCallback(async () => {
+    try {
+      const data = await getProjects();
+      setProjects(Array.isArray(data) ? data : []);
+    } catch {
+      setProjects([]);
+    }
+  }, []);
+
   const loadHealth = useCallback(async () => {
     try {
       const data = await getHealthScore(id);
@@ -71,16 +100,19 @@ export default function LeadDetailPage() {
     const load = async () => {
       await fetchLead();
       await fetchActivities();
+      await fetchCommunicationLogs();
       await loadHealth();
+      await loadProjects();
     };
 
     load();
-  }, [fetchActivities, fetchLead, loadHealth]);
+  }, [fetchActivities, fetchCommunicationLogs, fetchLead, loadHealth, loadProjects]);
 
   const handleFollowup = async () => {
     const data = await generateFollowup(id);
-
-    setFollowup(data.message);
+    const generatedMessage = data?.message || data?.response || "";
+    setFollowup(generatedMessage);
+    setMessage(generatedMessage);
   };
 
   const loadInsights = async () => {
@@ -149,6 +181,69 @@ export default function LeadDetailPage() {
     }
   };
 
+  const refreshCommunicationViews = async () => {
+    await fetchActivities();
+    await fetchCommunicationLogs();
+  };
+
+  const handleSendSMS = async () => {
+    if (!message.trim()) {
+      setCommunicationError("Enter a message before sending SMS.");
+      return;
+    }
+
+    try {
+      const result = await sendSMS(id, message);
+      setCommunicationStatus(`SMS ${result?.status || "sent"}.`);
+      setCommunicationError("");
+      await refreshCommunicationViews();
+    } catch (err) {
+      setCommunicationStatus("");
+      setCommunicationError(err?.message || "Unable to send SMS right now.");
+    }
+  };
+
+  const handleWhatsApp = async () => {
+    if (!message.trim()) {
+      setCommunicationError("Enter a message before opening WhatsApp.");
+      return;
+    }
+
+    try {
+      const result = await createWhatsAppLink(id, message);
+      if (result?.link && typeof window !== "undefined") {
+        window.open(result.link, "_blank", "noopener,noreferrer");
+      }
+      setCommunicationStatus("WhatsApp link ready.");
+      setCommunicationError("");
+      await refreshCommunicationViews();
+    } catch (err) {
+      setCommunicationStatus("");
+      setCommunicationError(err?.message || "Unable to prepare WhatsApp message right now.");
+    }
+  };
+
+  const handleSendEmail = async () => {
+    if (!subject.trim()) {
+      setCommunicationError("Enter an email subject before sending.");
+      return;
+    }
+    if (!message.trim()) {
+      setCommunicationError("Enter a message before sending email.");
+      return;
+    }
+
+    try {
+      const result = await sendEmail(id, subject, message);
+      setCommunicationStatus(`Email ${result?.status || "sent"}.`);
+      setCommunicationError("");
+      await refreshCommunicationViews();
+    } catch (err) {
+      setCommunicationStatus("");
+      setCommunicationError(err?.message || "Unable to send email right now.");
+    }
+  };
+
   if (!lead) {
     return (
       <AuthGuard>
@@ -198,6 +293,33 @@ export default function LeadDetailPage() {
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                 <p className="text-slate-500">Deal Value</p>
                 <p className="mt-1 font-medium text-slate-900">{formatCurrency(lead.deal_value)}</p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-slate-500">Project</p>
+                <select
+                  value={lead.project_id || ""}
+                  onChange={async (e) => {
+                    const value = e.target.value;
+                    try {
+                      if (value) {
+                        await assignProject(id, value);
+                      } else {
+                        await updateLead(id, { project_id: null });
+                      }
+                      await fetchLead();
+                    } catch {
+                      // keep current view stable on assignment failure
+                    }
+                  }}
+                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-slate-900"
+                >
+                  <option value="">Select Project</option>
+                  {projects.map((project) => (
+                    <option key={project.id} value={project.id}>
+                      {project.name}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                 <p className="text-slate-500">Conversion Probability</p>
@@ -269,6 +391,19 @@ export default function LeadDetailPage() {
               />
 
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <select
+                  className="rounded-lg border border-slate-200 p-2.5 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
+                  value={lead.project_id ?? ""}
+                  onChange={(e) => setLead({ ...lead, project_id: e.target.value ? Number(e.target.value) : null })}
+                >
+                  <option value="">Select Project</option>
+                  {projects.map((project) => (
+                    <option key={project.id} value={project.id}>
+                      {project.name}
+                    </option>
+                  ))}
+                </select>
+
                 <input
                   type="number"
                   min="0"
@@ -383,6 +518,52 @@ export default function LeadDetailPage() {
           </section>
 
           <section className="app-card rounded-2xl p-6">
+            <h2 className="panel-title mb-3">Communication</h2>
+
+            <textarea
+              placeholder="Type message"
+              className="min-h-32 w-full rounded-xl border border-slate-200 bg-white p-3 text-slate-900 outline-none transition focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+            />
+
+            <div className="mt-3 flex flex-wrap gap-3">
+              <button
+                onClick={handleSendSMS}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500"
+              >
+                Send SMS
+              </button>
+
+              <button
+                onClick={handleWhatsApp}
+                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-500"
+              >
+                Send WhatsApp
+              </button>
+            </div>
+
+            <div className="my-4 border-t border-slate-200" />
+
+            <input
+              placeholder="Email subject"
+              className="w-full rounded-lg border border-slate-200 p-2.5 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+            />
+
+            <button
+              onClick={handleSendEmail}
+              className="mt-3 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-purple-500"
+            >
+              Send Email
+            </button>
+
+            {communicationError ? <p className="mt-3 text-sm text-rose-600">{communicationError}</p> : null}
+            {communicationStatus ? <p className="mt-3 text-sm text-emerald-700">{communicationStatus}</p> : null}
+          </section>
+
+          <section className="app-card rounded-2xl p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="panel-title">AI Lead Research</h2>
@@ -481,6 +662,28 @@ export default function LeadDetailPage() {
                 </ul>
               </div>
             ) : null}
+          </section>
+
+          <section className="app-card rounded-2xl p-6">
+            <h2 className="panel-title mb-3">Communication Timeline</h2>
+
+            {!communicationLogs.length ? (
+              <p className="text-sm text-slate-500">No communication logs yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {communicationLogs.map((log) => (
+                  <div key={log.id} className="rounded-lg border border-slate-200 bg-white p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
+                        {String(log.type || "").toUpperCase()}
+                      </p>
+                      <span className="text-xs text-slate-400">{log.status || "-"}</span>
+                    </div>
+                    <p className="mt-2 whitespace-pre-wrap text-sm text-slate-800">{log.message}</p>
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
 
           <section className="app-card rounded-2xl p-6">

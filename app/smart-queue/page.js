@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import AuthGuard from "@/components/AuthGuard";
 import Layout from "@/components/Layout";
 import { getCurrentUser } from "@/lib/auth";
+import { getUsers } from "@/lib/users";
 import { getSmartQueue } from "@/lib/leads";
+import { filterLeadsByHierarchy, getScopeLabel, normalizeUsers, normalizeUser } from "@/lib/hierarchy";
 
 export default function SmartQueuePage() {
   const [leads, setLeads] = useState([]);
@@ -14,14 +16,26 @@ export default function SmartQueuePage() {
   useEffect(() => {
     const loadQueue = async () => {
       try {
-        const [queueData, user] = await Promise.all([getSmartQueue(), getCurrentUser()]);
-        const role = String(user?.role || "").toLowerCase();
-        setLeads(Array.isArray(queueData) ? queueData : []);
-        setScopeLabel(
-          ["admin", "superadmin", "super_admin", "manager"].includes(role)
-            ? "All company leads"
-            : "Your assigned leads",
+        const [queueData, user, usersResponse] = await Promise.all([
+          getSmartQueue(),
+          getCurrentUser(),
+          getUsers().catch(() => []),
+        ]);
+        const normalizedUser = normalizeUser(user || {});
+        const role = String(normalizedUser?.role || "").toLowerCase();
+        const allUsers = normalizeUsers(
+          Array.isArray(usersResponse)
+            ? usersResponse
+            : usersResponse?.users || usersResponse?.items || [],
         );
+        const queueItems = Array.isArray(queueData) ? queueData : [];
+        const scopedItems = queueItems.filter((item) => {
+          const scopedLeads = filterLeadsByHierarchy([item?.lead || {}], normalizedUser, allUsers);
+          return scopedLeads.length > 0;
+        });
+
+        setLeads(scopedItems);
+        setScopeLabel(getScopeLabel(role));
         setError("");
       } catch (err) {
         setLeads([]);

@@ -5,8 +5,17 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
 import { getLeads, createLead, generateFollowup, assignLead } from "@/lib/leads";
+import { getProjects } from "@/lib/projects";
 import { getUsers } from "@/lib/users";
 import { getCurrentUser } from "@/lib/auth";
+import {
+  filterLeadsByHierarchy,
+  getAssignableUsers,
+  getScopeLabel,
+  isManagerRole,
+  normalizeUsers,
+  normalizeUser,
+} from "@/lib/hierarchy";
 import AuthGuard from "@/components/AuthGuard";
 import Layout from "@/components/Layout";
 
@@ -15,15 +24,19 @@ export default function LeadsPage() {
   const searchParams = useSearchParams();
   const [leads, setLeads] = useState([]);
   const [users, setUsers] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
   const [currentUserRole, setCurrentUserRole] = useState("");
+  const [scopeLabel, setScopeLabel] = useState("All company leads");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [followupMessage, setFollowupMessage] = useState("");
+  const [projects, setProjects] = useState([]);
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [location, setLocation] = useState("");
   const [budget, setBudget] = useState("");
+  const [projectId, setProjectId] = useState("");
   const today = new Date();
   const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
   const defaultStartDate = monthStart.toISOString().split("T")[0];
@@ -35,14 +48,17 @@ export default function LeadsPage() {
   const fetchLeads = useCallback(async (filters = {}) => {
     try {
       const data = await getLeads(filters);
-      const normalizedLeads = Array.isArray(data)
+      const rawLeads = Array.isArray(data)
         ? data
         : Array.isArray(data?.leads)
           ? data.leads
           : Array.isArray(data?.items)
             ? data.items
             : [];
-      setLeads(normalizedLeads);
+      const visibleLeads = currentUser
+        ? filterLeadsByHierarchy(rawLeads, currentUser, users)
+        : rawLeads;
+      setLeads(visibleLeads);
       setError("");
     } catch (err) {
       setLeads([]);
@@ -58,21 +74,27 @@ export default function LeadsPage() {
         setTimeout(() => router.push("/login"), 600);
       }
     }
-  }, [router]);
+  }, [currentUser, router, users]);
 
   const loadCurrentUser = useCallback(async () => {
     try {
-      const user = await getCurrentUser();
+      const [userData, projectData] = await Promise.all([getCurrentUser(), getProjects()]);
+      const user = normalizeUser(userData);
       const resolvedRole = user?.role || "";
       setCurrentUserRole(resolvedRole);
+      setCurrentUser(user);
+      setScopeLabel(getScopeLabel(resolvedRole));
+      setProjects(Array.isArray(projectData) ? projectData : []);
 
       if (["super_admin", "superadmin", "admin", "manager"].includes(String(resolvedRole).toLowerCase())) {
         const data = await getUsers();
-        setUsers(data);
+        const allUsers = normalizeUsers(Array.isArray(data) ? data : data?.users || data?.items || []);
+        setUsers(getAssignableUsers(allUsers, user));
       } else {
         setUsers([]);
       }
     } catch (err) {
+      setCurrentUser(null);
       setCurrentUserRole("");
       setError(err?.message || "Unable to load current user.");
     }
@@ -83,13 +105,16 @@ export default function LeadsPage() {
   );
 
   useEffect(() => {
+    loadCurrentUser();
+  }, [loadCurrentUser]);
+
+  useEffect(() => {
     fetchLeads({
       start_date: defaultStartDate,
       end_date: defaultEndDate,
       q: searchQuery,
     });
-    loadCurrentUser();
-  }, [defaultEndDate, defaultStartDate, fetchLeads, loadCurrentUser, searchQuery]);
+  }, [defaultEndDate, defaultStartDate, fetchLeads, searchQuery]);
 
   const handleCreateLead = async (e) => {
     e.preventDefault();
@@ -116,6 +141,7 @@ export default function LeadsPage() {
         phone,
         location,
         budget,
+        project_id: projectId ? Number(projectId) : null,
         ai_score: aiScore,
         ai_priority: aiPriority,
         ai_reason: aiReason,
@@ -125,6 +151,7 @@ export default function LeadsPage() {
       setPhone("");
       setLocation("");
       setBudget("");
+      setProjectId("");
 
       await fetchLeads({
         start_date: startDate,
@@ -165,6 +192,9 @@ export default function LeadsPage() {
               <span className="brand-gradient-text">Leads Management</span>
             </h1>
             <p className="muted-copy mt-2">Create, score, and follow up with high-intent opportunities.</p>
+            <p className="mt-3 inline-flex rounded-full border border-cyan-100 bg-cyan-50 px-3 py-1 text-xs font-medium text-cyan-700">
+              Scope: {scopeLabel}
+            </p>
           </header>
 
           {error ? (
@@ -176,7 +206,11 @@ export default function LeadsPage() {
           <section className="grid min-h-0 flex-1 grid-cols-1 gap-5 xl:grid-cols-3">
             <form onSubmit={handleCreateLead} className="app-card flex min-h-0 flex-col overflow-y-auto rounded-2xl p-5 xl:col-span-1">
               <h2 className="panel-title">Create Lead</h2>
-              <p className="muted-copy mt-1">Add a new contact to your pipeline.</p>
+              <p className="muted-copy mt-1">
+                {isManagerRole(currentUserRole)
+                  ? "Add a new contact to your team pipeline and assign it to a valid owner."
+                  : "Add a new contact to your pipeline."}
+              </p>
 
               <div className="mt-5 space-y-3">
                 <input
@@ -207,6 +241,18 @@ export default function LeadsPage() {
                   onChange={(e) => setBudget(e.target.value)}
                   required
                 />
+                <select
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
+                  value={projectId}
+                  onChange={(e) => setProjectId(e.target.value)}
+                >
+                  <option value="">Select Project</option>
+                  {projects.map((project) => (
+                    <option key={project.id} value={project.id}>
+                      {project.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <button
@@ -265,7 +311,8 @@ export default function LeadsPage() {
                     <col className="w-[13%]" />
                     <col className="w-[10%]" />
                     <col className="w-[12%]" />
-                    <col className="w-[16%]" />
+                    <col className="w-[12%]" />
+                    <col className="w-[14%]" />
                     <col className="w-[5%]" />
                   </colgroup>
                   <thead className="sticky top-0 z-10 bg-white/85 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 backdrop-blur">
@@ -276,6 +323,7 @@ export default function LeadsPage() {
                       <th className="px-3 py-3 text-left font-semibold">Budget</th>
                       <th className="px-3 py-3 text-left font-semibold">AI Score</th>
                       <th className="px-3 py-3 text-left font-semibold">Priority</th>
+                      <th className="px-3 py-3 text-left font-semibold">Project</th>
                       <th className="px-3 py-3 text-left font-semibold">Owner</th>
                       <th className="px-3 py-3 text-left font-semibold">Actions</th>
                     </tr>
@@ -327,6 +375,9 @@ export default function LeadsPage() {
                             {lead.ai_priority || "Unrated"}
                           </span>
                         </td>
+                        <td className="bg-white px-3 py-4 text-sm text-slate-700">
+                          {lead.project_name || "-"}
+                        </td>
                         <td className="bg-white px-3 py-4">
                           {canManageOwners ? (
                             <select
@@ -373,7 +424,7 @@ export default function LeadsPage() {
                     ))}
                     {!leads.length ? (
                       <tr>
-                        <td className="px-3 py-12 text-center text-sm text-slate-500" colSpan={8}>
+                        <td className="px-3 py-12 text-center text-sm text-slate-500" colSpan={9}>
                           No leads found for the selected date range.
                         </td>
                       </tr>

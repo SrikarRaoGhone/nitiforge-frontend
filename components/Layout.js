@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { LayoutDashboard, Users, LogOut, Workflow, Bell, UserCircle, Shield, BrainCircuit, Bot } from "lucide-react";
+import { Building2, LayoutDashboard, Users, LogOut, Workflow, Bell, UserCircle, Shield, BrainCircuit, Bot } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import Topbar from "./Topbar";
 
@@ -60,6 +60,11 @@ export default function Layout({ children }) {
       name: "Leads",
       icon: Users,
       href: "/leads",
+    },
+    {
+      name: "Projects",
+      icon: Building2,
+      href: "/projects",
     },
     {
       name: "Smart Queue",
