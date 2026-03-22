@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { getCompany } from "@/lib/company";
 import { getCurrentUser, getTokenProfile } from "@/lib/auth";
 import { getFollowupReminders } from "@/lib/leads";
@@ -12,7 +12,6 @@ import { Bell, ChevronDown, LogOut, Moon, Search, Settings, Sun, UserCircle } fr
 export default function Topbar() {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const [company, setCompany] = useState(() => {
     if (typeof window === "undefined") return "";
     return localStorage.getItem("company_name") || getTokenProfile()?.company_name || "";
@@ -22,9 +21,10 @@ export default function Topbar() {
   const [accountOpen, setAccountOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [accountName, setAccountName] = useState(() => getTokenProfile()?.name || "My Account");
-  const [search, setSearch] = useState(() => searchParams.get("q") || "");
+  const [search, setSearch] = useState("");
   const { theme, setTheme } = useTheme();
-  const urlSearch = searchParams.get("q") || "";
+  const currentUrlSearch =
+    typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("q") || "";
 
   const loadCompany = async () => {
     try {
@@ -125,7 +125,7 @@ export default function Topbar() {
 
         <input
           placeholder="Search leads..."
-          value={pathname === "/leads" && search !== urlSearch ? search : (pathname === "/leads" ? urlSearch : search)}
+          value={pathname === "/leads" ? currentUrlSearch : search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full bg-transparent text-sm outline-none dark:text-slate-200 dark:placeholder:text-slate-500"
         />
