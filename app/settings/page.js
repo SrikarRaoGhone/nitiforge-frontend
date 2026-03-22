@@ -11,6 +11,9 @@ const emptyForm = {
   sms_api_key: "",
   whatsapp_api_key: "",
   email_api_key: "",
+  openai_api_key: "",
+  use_own_openai: false,
+  ai_usage: 0,
 };
 
 export default function SettingsPage() {
@@ -37,8 +40,8 @@ export default function SettingsPage() {
   }, []);
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setForm((current) => ({ ...current, [name]: value }));
+    const { name, value, type, checked } = e.target;
+    setForm((current) => ({ ...current, [name]: type === "checkbox" ? checked : value }));
     setSuccess("");
   };
 
@@ -49,7 +52,13 @@ export default function SettingsPage() {
     setSuccess("");
 
     try {
-      await updateCompanySettings(form);
+      const response = await updateCompanySettings({
+        ...form,
+        openai_api_key: form.openai_api_key?.trim() || null,
+      });
+      if (response?.company) {
+        setForm((current) => ({ ...current, ...response.company }));
+      }
       setSuccess("Settings saved successfully.");
     } catch (err) {
       setError(err?.message || "Unable to save settings.");
@@ -180,6 +189,50 @@ export default function SettingsPage() {
                   value={form.email_api_key}
                   onChange={handleChange}
                   placeholder="SendGrid or email provider API key"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
+                />
+              </label>
+            </div>
+          </section>
+
+          <section className="app-card rounded-2xl p-6">
+            <div className="mb-5 flex items-center justify-between gap-4">
+              <div>
+                <h2 className="panel-title">AI Settings</h2>
+                <p className="muted-copy mt-1">
+                  Use the system-managed AI quota by default, or switch to your own OpenAI key for advanced usage.
+                </p>
+              </div>
+              <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+                Usage: {form.ai_usage || 0}
+              </span>
+            </div>
+
+            <div className="grid gap-4">
+              <label className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                <div className="pr-4">
+                  <span className="block text-sm font-medium text-slate-700">Use own OpenAI key</span>
+                  <span className="mt-1 block text-sm text-slate-500">
+                    Enable BYOK for AI features. System AI remains available with a controlled company quota.
+                  </span>
+                </div>
+                <input
+                  type="checkbox"
+                  name="use_own_openai"
+                  checked={Boolean(form.use_own_openai)}
+                  onChange={handleChange}
+                  className="h-5 w-5 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500"
+                />
+              </label>
+
+              <label className="text-sm">
+                <span className="mb-2 block font-medium text-slate-600">OpenAI API Key</span>
+                <input
+                  name="openai_api_key"
+                  type="password"
+                  value={form.openai_api_key || ""}
+                  onChange={handleChange}
+                  placeholder="sk-..."
                   className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
                 />
               </label>
