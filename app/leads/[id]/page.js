@@ -261,12 +261,14 @@ export default function LeadDetailPage() {
     <AuthGuard>
       <Layout>
         <div className="mx-auto max-w-7xl space-y-6">
-          <section className="app-card rounded-2xl p-6">
-            <div className="flex flex-wrap items-start justify-between gap-4">
+          <section className="app-card rounded-2xl px-6 py-4">
+            <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
-                <p className="section-kicker">Lead Profile</p>
-                <h1 className="section-title mt-2">{lead.name}</h1>
-                <p className="muted-copy mt-2">Manage contact details, stage progression, and AI guidance.</p>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <p className="section-kicker">Lead Profile</p>
+                  <h1 className="text-2xl font-semibold text-slate-950">{lead.name}</h1>
+                  <p className="text-sm text-slate-500">Manage contact details, stage progression, and AI guidance.</p>
+                </div>
               </div>
 
               <button
@@ -277,7 +279,7 @@ export default function LeadDetailPage() {
               </button>
             </div>
 
-            <div className="mt-6 grid gap-4 text-sm sm:grid-cols-2 xl:grid-cols-6">
+            <div className="mt-5 grid gap-4 text-sm sm:grid-cols-2 xl:grid-cols-7">
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                 <p className="text-slate-500">Phone</p>
                 <p className="mt-1 font-medium text-slate-900">{lead.phone || "-"}</p>
@@ -347,23 +349,6 @@ export default function LeadDetailPage() {
               </div>
             </div>
 
-            <div className="mt-5 flex flex-wrap gap-3">
-              <a
-                href={`tel:${lead.phone}`}
-                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-500"
-              >
-                Call
-              </a>
-
-              <a
-                href={`https://wa.me/${lead.phone}`}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-400"
-              >
-                WhatsApp
-              </a>
-            </div>
           </section>
 
           {editing && (
@@ -444,76 +429,84 @@ export default function LeadDetailPage() {
           )}
 
           <section className="app-card rounded-2xl p-6">
-            <h2 className="panel-title mb-3">Lead Health Score</h2>
-
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-              <p className="text-2xl font-bold text-slate-900">
-                {health != null ? `${health} / 100` : "-"}
-              </p>
-              <div className="mt-3 flex items-center gap-2">
-                <span className={`h-2.5 w-2.5 rounded-full ${healthMeta.dot}`} />
-                <span className={`rounded-full px-2.5 py-1 text-sm font-medium ${healthMeta.badge}`}>
-                  {healthMeta.label}
-                </span>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="panel-title">AI Workspace</h2>
+                <p className="muted-copy mt-1">Health score, deal insights, and follow-up guidance in one place.</p>
               </div>
-              <p className="mt-3 text-sm text-slate-600">
-                Status: {healthMeta.label}
-              </p>
-            </div>
-          </section>
-
-          <section className="grid grid-cols-1 gap-5 xl:grid-cols-3">
-            <div className="app-card rounded-2xl p-6 xl:col-span-2">
-              <h2 className="panel-title mb-4">AI Insights</h2>
-              <div className="grid gap-3 text-sm sm:grid-cols-3">
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-slate-500">Score</p>
-                  <p className="mt-1 text-lg font-semibold text-cyan-700">{lead.ai_score ?? "-"}</p>
-                </div>
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-slate-500">Priority</p>
-                  <p className="mt-1 text-lg font-semibold text-slate-900">{lead.ai_priority ?? "-"}</p>
-                </div>
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-slate-500">Reason</p>
-                  <p className="mt-1 text-slate-800">{lead.ai_reason ?? "-"}</p>
-                </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={loadInsights}
+                  className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-purple-500"
+                >
+                  Generate AI Deal Insights
+                </button>
+                <button
+                  onClick={handleFollowup}
+                  className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-500"
+                >
+                  Generate Follow-Up
+                </button>
               </div>
-
-              <button
-                onClick={loadInsights}
-                className="mt-4 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-purple-500"
-              >
-                Generate AI Deal Insights
-              </button>
-
-              {insightsError ? <p className="mt-3 text-sm text-rose-600">{insightsError}</p> : null}
-
-              {insights ? (
-                <div className="mt-5 rounded-xl border border-purple-100 bg-purple-50/60 p-4 text-sm">
-                  <h3 className="mb-3 font-semibold text-slate-900">AI Deal Insights</h3>
-                  <p><b>Conversion Probability:</b> {insights.conversion_probability}%</p>
-                  <p><b>Suggested Action:</b> {insights.suggested_action}</p>
-                  <p><b>Best Follow-Up Time:</b> {insights.best_followup_time}</p>
-                  <p><b>AI Strategy:</b> {insights.ai_strategy}</p>
-                </div>
-              ) : null}
             </div>
 
-            <div className="app-card rounded-2xl p-6">
-              <h2 className="panel-title mb-3">AI Follow-Up</h2>
-              <button
-                onClick={handleFollowup}
-                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-500"
-              >
-                Generate Follow-Up
-              </button>
-
-              {followup ? (
-                <p className="mt-4 rounded-lg border border-emerald-100 bg-emerald-50 p-3 text-sm text-slate-700">
-                  {followup}
+            <div className="mt-5 grid gap-5 xl:grid-cols-[0.8fr_1.2fr_1fr]">
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <p className="text-sm font-medium text-slate-500">Lead Health Score</p>
+                <p className="mt-3 text-3xl font-bold text-slate-900">
+                  {health != null ? `${health} / 100` : "-"}
                 </p>
-              ) : null}
+                <div className="mt-3 flex items-center gap-2">
+                  <span className={`h-2.5 w-2.5 rounded-full ${healthMeta.dot}`} />
+                  <span className={`rounded-full px-2.5 py-1 text-sm font-medium ${healthMeta.badge}`}>
+                    {healthMeta.label}
+                  </span>
+                </div>
+                <p className="mt-3 text-sm text-slate-600">Status: {healthMeta.label}</p>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-slate-500">AI Insights</h3>
+                <div className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    <p className="text-slate-500">Score</p>
+                    <p className="mt-1 text-lg font-semibold text-cyan-700">{lead.ai_score ?? "-"}</p>
+                  </div>
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    <p className="text-slate-500">Priority</p>
+                    <p className="mt-1 text-lg font-semibold text-slate-900">{lead.ai_priority ?? "-"}</p>
+                  </div>
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    <p className="text-slate-500">Reason</p>
+                    <p className="mt-1 text-slate-800">{lead.ai_reason ?? "-"}</p>
+                  </div>
+                </div>
+
+                {insightsError ? <p className="mt-3 text-sm text-rose-600">{insightsError}</p> : null}
+
+                {insights ? (
+                  <div className="mt-4 rounded-xl border border-purple-100 bg-purple-50/60 p-4 text-sm">
+                    <h3 className="mb-3 font-semibold text-slate-900">AI Deal Insights</h3>
+                    <p><b>Conversion Probability:</b> {insights.conversion_probability}%</p>
+                    <p><b>Suggested Action:</b> {insights.suggested_action}</p>
+                    <p><b>Best Follow-Up Time:</b> {insights.best_followup_time}</p>
+                    <p><b>AI Strategy:</b> {insights.ai_strategy}</p>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-slate-500">AI Follow-Up</h3>
+                {followup ? (
+                  <p className="mt-4 rounded-lg border border-emerald-100 bg-emerald-50 p-3 text-sm leading-6 text-slate-700">
+                    {followup}
+                  </p>
+                ) : (
+                  <p className="mt-4 text-sm text-slate-500">
+                    Generate a follow-up message tailored to this lead’s current stage and AI context.
+                  </p>
+                )}
+              </div>
             </div>
           </section>
 

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { Building2, LayoutDashboard, Users, LogOut, Workflow, Bell, UserCircle, Shield, BrainCircuit, Bot } from "lucide-react";
+import { Building2, LayoutDashboard, Users, LogOut, Workflow, Bell, UserCircle, Shield, BrainCircuit, Bot, Settings } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import Topbar from "./Topbar";
 
@@ -92,6 +92,11 @@ export default function Layout({ children }) {
       href: "/profile",
     },
     {
+      name: "Settings",
+      icon: Settings,
+      href: "/settings",
+    },
+    {
       name: "Admin",
       icon: Shield,
       href: "/admin",
@@ -105,7 +110,7 @@ export default function Layout({ children }) {
   return (
     <div className="app-shell-bg flex h-screen">
       {/* Sidebar */}
-      <aside className="relative w-72 border-r border-white/30 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 px-4 py-5 text-slate-100">
+      <aside className="relative flex w-72 shrink-0 flex-col border-r border-white/30 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 px-4 py-5 text-slate-100">
         <div className="pointer-events-none absolute -top-10 -left-10 h-36 w-36 rounded-full bg-cyan-500/25 blur-3xl" />
         <div className="pointer-events-none absolute bottom-16 -right-10 h-40 w-40 rounded-full bg-blue-500/15 blur-3xl" />
 
@@ -119,7 +124,7 @@ export default function Layout({ children }) {
           <p className="mt-1 text-xs text-slate-300">Lead intelligence workspace</p>
         </div>
 
-        <nav className="relative space-y-2">
+        <nav className="relative flex-1 space-y-2 overflow-y-auto pr-1">
           {menu.map((item) => {
             const Icon = item.icon;
             return (
@@ -140,7 +145,7 @@ export default function Layout({ children }) {
           })}
         </nav>
 
-        <div className="absolute right-4 bottom-5 left-4">
+        <div className="mt-5">
           <button
             onClick={logout}
             className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-rose-300/40 bg-rose-500/80 py-2.5 font-medium text-white transition hover:bg-rose-500"

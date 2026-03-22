@@ -13,15 +13,15 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata = {
-  title: "NitiForge CRM",
-  description: "Modern CRM workspace for lead intelligence",
+  title: "NitiForge - AI CRM for Real Estate",
+  description: "AI-powered sales CRM for real estate companies",
 };
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className="h-full overflow-hidden" suppressHydrationWarning>
+    <html lang="en" className="h-full" suppressHydrationWarning>
       <body
-        className={`${spaceGrotesk.variable} ${jetbrainsMono.variable} h-full overflow-hidden antialiased`}
+        className={`${spaceGrotesk.variable} ${jetbrainsMono.variable} h-full overflow-x-hidden antialiased`}
       >
         <ThemeProvider attribute="class">
           {children}

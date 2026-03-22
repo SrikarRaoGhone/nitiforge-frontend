@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Sparkles } from "lucide-react";
-import { getLeads, createLead, generateFollowup, assignLead } from "@/lib/leads";
+import { getLeads, createLead, assignLead } from "@/lib/leads";
 import { getProjects } from "@/lib/projects";
 import { getUsers } from "@/lib/users";
 import { getCurrentUser } from "@/lib/auth";
@@ -19,6 +18,25 @@ import {
 import AuthGuard from "@/components/AuthGuard";
 import Layout from "@/components/Layout";
 
+const LEAD_SOURCE_OPTIONS = [
+  "Website",
+  "Walk-in",
+  "99acres",
+  "MagicBricks",
+  "Housing",
+  "Google Ads",
+  "Facebook Ads",
+  "Instagram",
+  "WhatsApp Campaign",
+  "Channel Partner",
+  "Broker",
+  "Referral",
+  "Site Visit",
+  "Cold Call",
+  "Property Expo",
+  "Other",
+];
+
 export default function LeadsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -29,14 +47,16 @@ export default function LeadsPage() {
   const [scopeLabel, setScopeLabel] = useState("All company leads");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [followupMessage, setFollowupMessage] = useState("");
   const [projects, setProjects] = useState([]);
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [source, setSource] = useState("");
   const [location, setLocation] = useState("");
   const [budget, setBudget] = useState("");
   const [projectId, setProjectId] = useState("");
+  const [filterProjectId, setFilterProjectId] = useState("");
+  const [filterOwnerId, setFilterOwnerId] = useState("");
   const today = new Date();
   const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
   const defaultStartDate = monthStart.toISOString().split("T")[0];
@@ -58,7 +78,14 @@ export default function LeadsPage() {
       const visibleLeads = currentUser
         ? filterLeadsByHierarchy(rawLeads, currentUser, users)
         : rawLeads;
-      setLeads(visibleLeads);
+      const filteredLeads = visibleLeads.filter((lead) => {
+        const matchesProject =
+          !filters?.project_id || String(lead?.project_id || "") === String(filters.project_id);
+        const matchesOwner =
+          !filters?.owner_id || String(lead?.assigned_to || "") === String(filters.owner_id);
+        return matchesProject && matchesOwner;
+      });
+      setLeads(filteredLeads);
       setError("");
     } catch (err) {
       setLeads([]);
@@ -126,7 +153,7 @@ export default function LeadsPage() {
       const budgetScore = Number.isFinite(budgetValue)
         ? Math.min(45, Math.round(budgetValue / 50000) * 5)
         : 10;
-      const completenessScore = [name, phone, location, budget].filter(Boolean).length * 10;
+      const completenessScore = [name, phone, source, location, budget].filter(Boolean).length * 10;
       const aiScore = Math.max(20, Math.min(100, budgetScore + completenessScore));
       const aiPriority = aiScore >= 75 ? "High" : aiScore >= 50 ? "Medium" : "Low";
       const aiReason =
@@ -139,6 +166,7 @@ export default function LeadsPage() {
       await createLead({
         name,
         phone,
+        source,
         location,
         budget,
         project_id: projectId ? Number(projectId) : null,
@@ -149,6 +177,7 @@ export default function LeadsPage() {
 
       setName("");
       setPhone("");
+      setSource("");
       setLocation("");
       setBudget("");
       setProjectId("");
@@ -157,6 +186,8 @@ export default function LeadsPage() {
         start_date: startDate,
         end_date: endDate,
         q: searchQuery,
+        project_id: filterProjectId,
+        owner_id: filterOwnerId,
       });
     } catch (err) {
       setError(err?.message || "Unable to create lead right now.");
@@ -165,20 +196,13 @@ export default function LeadsPage() {
     }
   };
 
-  const handleGenerateFollowup = async (leadId) => {
-    try {
-      const data = await generateFollowup(leadId);
-      setFollowupMessage(data?.message || data?.followup || "Follow-up generated successfully.");
-    } catch (err) {
-      setFollowupMessage(err?.message || "Unable to generate follow-up right now.");
-    }
-  };
-
   const handleShowLeads = async () => {
     await fetchLeads({
       start_date: startDate,
       end_date: endDate,
       q: searchQuery,
+      project_id: filterProjectId,
+      owner_id: filterOwnerId,
     });
   };
 
@@ -186,15 +210,11 @@ export default function LeadsPage() {
     <AuthGuard>
       <Layout>
         <div className="mx-auto flex h-[calc(100vh-11.5rem)] max-w-7xl flex-col overflow-hidden">
-          <header className="app-card mb-5 shrink-0 rounded-2xl p-6">
-            <p className="section-kicker">Lead Operations</p>
-            <h1 className="section-title mt-2">
+          <header className="app-card mb-4 shrink-0 rounded-2xl px-6 py-4">
+            <h1 className="section-title">
               <span className="brand-gradient-text">Leads Management</span>
             </h1>
-            <p className="muted-copy mt-2">Create, score, and follow up with high-intent opportunities.</p>
-            <p className="mt-3 inline-flex rounded-full border border-cyan-100 bg-cyan-50 px-3 py-1 text-xs font-medium text-cyan-700">
-              Scope: {scopeLabel}
-            </p>
+            <p className="muted-copy mt-1.5">Create, score, and follow up with high-intent opportunities.</p>
           </header>
 
           {error ? (
@@ -203,8 +223,8 @@ export default function LeadsPage() {
             </div>
           ) : null}
 
-          <section className="grid min-h-0 flex-1 grid-cols-1 gap-5 xl:grid-cols-3">
-            <form onSubmit={handleCreateLead} className="app-card flex min-h-0 flex-col overflow-y-auto rounded-2xl p-5 xl:col-span-1">
+          <section className="grid min-h-0 flex-1 grid-cols-1 gap-5 xl:grid-cols-[0.59fr_1.41fr]">
+            <form onSubmit={handleCreateLead} className="app-card flex min-h-0 flex-col overflow-y-auto rounded-2xl p-5">
               <h2 className="panel-title">Create Lead</h2>
               <p className="muted-copy mt-1">
                 {isManagerRole(currentUserRole)
@@ -227,6 +247,19 @@ export default function LeadsPage() {
                   onChange={(e) => setPhone(e.target.value)}
                   required
                 />
+                <select
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
+                  value={source}
+                  onChange={(e) => setSource(e.target.value)}
+                  required
+                >
+                  <option value="">Select Lead Source</option>
+                  {LEAD_SOURCE_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
                 <input
                   className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
                   placeholder="Location"
@@ -264,32 +297,74 @@ export default function LeadsPage() {
               </button>
             </form>
 
-            <div className="app-card flex min-h-0 flex-col overflow-hidden rounded-2xl xl:col-span-2">
-              <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-5 py-4">
-                <h2 className="panel-title">Pipeline Leads</h2>
-                <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs text-slate-600">
-                  {leads.length} records
-                </span>
+            <div className="app-card flex min-h-0 flex-col overflow-hidden rounded-2xl">
+              <div className="shrink-0 border-b border-slate-200 bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(240,249,255,0.92))] px-5 py-3">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h2 className="panel-title text-xl">Pipeline Leads</h2>
+                  </div>
+                  <div className="flex items-center gap-2 pt-0.5">
+                    <span className="rounded-full border border-cyan-100 bg-cyan-50 px-3 py-1 text-xs font-medium text-cyan-700">
+                      {scopeLabel}
+                    </span>
+                    <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600 shadow-sm">
+                      {leads.length} records
+                    </span>
+                  </div>
+                </div>
               </div>
 
-              <div className="grid shrink-0 gap-3 border-b border-slate-200 bg-white/80 px-5 py-4 md:grid-cols-[1fr_1fr_auto]">
+              <div className="grid shrink-0 items-center gap-3 border-b border-slate-200 bg-[linear-gradient(180deg,rgba(248,250,252,0.98),rgba(255,255,255,0.9))] px-5 py-3 xl:grid-cols-[1fr_1fr_1fr_1fr_auto]">
                 <label className="text-sm">
-                  <span className="mb-1 block font-medium text-slate-600">From</span>
                   <input
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
+                    aria-label="From date"
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-slate-700 outline-none transition focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
                   />
                 </label>
                 <label className="text-sm">
-                  <span className="mb-1 block font-medium text-slate-600">To</span>
                   <input
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
+                    aria-label="To date"
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-slate-700 outline-none transition focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
                   />
+                </label>
+                <label className="text-sm">
+                  <select
+                    value={filterProjectId}
+                    onChange={(e) => setFilterProjectId(e.target.value)}
+                    aria-label="Project filter"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-slate-700 outline-none transition focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
+                  >
+                    <option value="">All Projects</option>
+                    {projects.map((project) => (
+                      <option key={project.id} value={project.id}>
+                        {project.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="text-sm">
+                  <select
+                    value={filterOwnerId}
+                    onChange={(e) => setFilterOwnerId(e.target.value)}
+                    aria-label="Owner filter"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-slate-700 outline-none transition focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
+                  >
+                    <option value="">All Owners</option>
+                    {users.map((user) => (
+                      <option key={user.id} value={user.id}>
+                        {user.name}
+                      </option>
+                    ))}
+                    {!users.some((user) => user.id === currentUser?.id) && currentUser?.id ? (
+                      <option value={currentUser.id}>{currentUser.name || "You"}</option>
+                    ) : null}
+                  </select>
                 </label>
                 <div className="flex items-end">
                   <button
@@ -302,30 +377,24 @@ export default function LeadsPage() {
                 </div>
               </div>
 
-              <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.08),_transparent_35%),linear-gradient(180deg,_rgba(248,250,252,0.98),_rgba(255,255,255,0.94))] px-3 pb-4">
-                <table className="w-full table-auto border-separate border-spacing-y-3">
+              <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.09),_transparent_34%),linear-gradient(180deg,_rgba(248,250,252,0.98),_rgba(255,255,255,0.94))] px-4 py-3">
+                <table className="w-full table-auto border-separate border-spacing-y-4">
                   <colgroup>
-                    <col className="w-[18%]" />
-                    <col className="w-[13%]" />
-                    <col className="w-[13%]" />
-                    <col className="w-[13%]" />
+                    <col className="w-[24%]" />
+                    <col className="w-[17%]" />
                     <col className="w-[10%]" />
                     <col className="w-[12%]" />
-                    <col className="w-[12%]" />
-                    <col className="w-[14%]" />
-                    <col className="w-[5%]" />
+                    <col className="w-[15%]" />
+                    <col className="w-[22%]" />
                   </colgroup>
-                  <thead className="sticky top-0 z-10 bg-white/85 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 backdrop-blur">
+                  <thead className="sticky top-0 z-10 bg-white/88 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 backdrop-blur">
                     <tr>
                       <th className="px-3 py-3 text-left font-semibold">Lead</th>
                       <th className="px-3 py-3 text-left font-semibold">Phone</th>
-                      <th className="px-3 py-3 text-left font-semibold">Location</th>
-                      <th className="px-3 py-3 text-left font-semibold">Budget</th>
                       <th className="px-3 py-3 text-left font-semibold">AI Score</th>
                       <th className="px-3 py-3 text-left font-semibold">Priority</th>
                       <th className="px-3 py-3 text-left font-semibold">Project</th>
                       <th className="px-3 py-3 text-left font-semibold">Owner</th>
-                      <th className="px-3 py-3 text-left font-semibold">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -334,35 +403,24 @@ export default function LeadsPage() {
                         key={lead.id}
                         className="text-sm text-slate-700 transition hover:-translate-y-0.5"
                       >
-                        <td className="rounded-l-2xl bg-white px-3 py-4 shadow-[0_14px_35px_rgba(15,23,42,0.06)]">
+                        <td className="rounded-l-[1.4rem] bg-white px-4 py-3.5 shadow-[0_18px_42px_rgba(15,23,42,0.08)]">
                           <div className="min-w-0">
                             <Link href={`/leads/${lead.id}`} className="block font-semibold text-slate-900 transition hover:text-cyan-700">
                               {lead.name}
                             </Link>
-                            <p className="mt-1 truncate text-xs text-slate-500">
-                              Lead ID #{lead.id}
-                            </p>
                           </div>
                         </td>
-                        <td className="bg-white px-3 py-4 font-medium text-slate-700">
+                        <td className="bg-white px-3 py-3.5 font-medium text-slate-700 shadow-[0_18px_42px_rgba(15,23,42,0.08)]">
                           <a href={`tel:${lead.phone}`} className="block transition hover:text-cyan-700">
                             {lead.phone}
                           </a>
                         </td>
-                        <td className="bg-white px-3 py-4">
-                          <span className="inline-flex max-w-full rounded-full border border-cyan-100 bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-700">
-                            {lead.location}
-                          </span>
-                        </td>
-                        <td className="bg-white px-3 py-4 font-semibold text-slate-900">
-                          <span className="block">{lead.budget}</span>
-                        </td>
-                        <td className="bg-white px-3 py-4">
+                        <td className="bg-white px-3 py-3.5 shadow-[0_18px_42px_rgba(15,23,42,0.08)]">
                           <span className="inline-flex min-w-12 justify-center rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white shadow-sm">
                             {lead.ai_score ?? "-"}
                           </span>
                         </td>
-                        <td className="bg-white px-3 py-4">
+                        <td className="bg-white px-3 py-3.5 shadow-[0_18px_42px_rgba(15,23,42,0.08)]">
                           <span
                             className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold shadow-sm ${
                               lead.ai_priority === "High"
@@ -375,10 +433,12 @@ export default function LeadsPage() {
                             {lead.ai_priority || "Unrated"}
                           </span>
                         </td>
-                        <td className="bg-white px-3 py-4 text-sm text-slate-700">
-                          {lead.project_name || "-"}
+                        <td className="bg-white px-3 py-3.5 text-sm text-slate-700 shadow-[0_18px_42px_rgba(15,23,42,0.08)]">
+                          <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600">
+                            {lead.project_name || "No project"}
+                          </span>
                         </td>
-                        <td className="bg-white px-3 py-4">
+                        <td className="rounded-r-[1.4rem] bg-white px-3 py-3.5 shadow-[0_18px_42px_rgba(15,23,42,0.08)]">
                           {canManageOwners ? (
                             <select
                               className="w-full rounded-xl border border-slate-200 bg-slate-50 px-2 py-2 text-sm text-slate-700 outline-none transition focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
@@ -410,21 +470,11 @@ export default function LeadsPage() {
                             </span>
                           )}
                         </td>
-                        <td className="rounded-r-2xl bg-white px-3 py-4">
-                          <button
-                            onClick={() => handleGenerateFollowup(lead.id)}
-                            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/20 transition hover:-translate-y-0.5 hover:brightness-110"
-                            title="Generate AI follow-up"
-                            aria-label="Generate AI follow-up"
-                          >
-                            <Sparkles size={18} />
-                          </button>
-                        </td>
                       </tr>
                     ))}
                     {!leads.length ? (
                       <tr>
-                        <td className="px-3 py-12 text-center text-sm text-slate-500" colSpan={9}>
+                        <td className="px-3 py-12 text-center text-sm text-slate-500" colSpan={6}>
                           No leads found for the selected date range.
                         </td>
                       </tr>
@@ -432,13 +482,6 @@ export default function LeadsPage() {
                   </tbody>
                 </table>
               </div>
-
-              {followupMessage && (
-                <div className="shrink-0 border-t border-slate-200 bg-slate-50/60 p-5">
-                  <h2 className="mb-2 font-semibold text-slate-900">AI Follow-Up Message</h2>
-                  <p className="text-sm text-slate-700">{followupMessage}</p>
-                </div>
-              )}
             </div>
           </section>
         </div>
