@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { getLeads, createLead, assignLead } from "@/lib/leads";
@@ -37,7 +37,7 @@ const LEAD_SOURCE_OPTIONS = [
   "Other",
 ];
 
-export default function LeadsPage() {
+function LeadsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [leads, setLeads] = useState([]);
@@ -487,5 +487,23 @@ export default function LeadsPage() {
         </div>
       </Layout>
     </AuthGuard>
+  );
+}
+
+export default function LeadsPage() {
+  return (
+    <Suspense
+      fallback={
+        <Layout>
+          <div className="mx-auto max-w-7xl">
+            <div className="app-card rounded-2xl px-6 py-10 text-sm text-slate-500">
+              Loading leads...
+            </div>
+          </div>
+        </Layout>
+      }
+    >
+      <LeadsPageContent />
+    </Suspense>
   );
 }
