@@ -4,12 +4,20 @@ import { useCallback, useEffect, useState } from "react";
 import Layout from "@/components/Layout";
 import AuthGuard from "@/components/AuthGuard";
 import { useParams } from "next/navigation";
-import { generateFollowup, generateMeetingNotes, getDealRisk, getHealthScore, getLeadActivities, getLeadInsights, getLeadResearch, getLeads, updateLead } from "@/lib/leads";
+import { createLeadActivity, generateFollowup, generateMeetingNotes, getDealRisk, getHealthScore, getLeadActivities, getLeadInsights, getLeadResearch, getLeads, updateLead } from "@/lib/leads";
 import { assignProject, getProjects } from "@/lib/projects";
 import { createWhatsAppLink, getCommunicationLogs, sendEmail, sendSMS } from "@/lib/communication";
 
 export default function LeadDetailPage() {
   const { id } = useParams();
+  const activityTypeOptions = [
+    { value: "call", label: "Call" },
+    { value: "whatsapp", label: "WhatsApp" },
+    { value: "meeting", label: "Meeting" },
+    { value: "site_visit", label: "Site Visit" },
+    { value: "note", label: "Note" },
+    { value: "followup_reminder", label: "Follow-Up Reminder" },
+  ];
   const formatCurrency = (value) => {
     const amount = Number(value || 0);
     if (!amount) return "-";
@@ -22,6 +30,12 @@ export default function LeadDetailPage() {
   };
   const formatActivityLabel = (type) => {
     const labels = {
+      call: "Call",
+      whatsapp: "WhatsApp",
+      meeting: "Meeting",
+      site_visit: "Site Visit",
+      note: "Note",
+      followup_reminder: "Follow-Up Reminder",
       meeting_notes: "AI Meeting Notes",
       lead_created: "Lead Created",
       ai_scored: "AI Scored",
@@ -44,12 +58,17 @@ export default function LeadDetailPage() {
   const [risk, setRisk] = useState(null);
   const [health, setHealth] = useState(null);
   const [projects, setProjects] = useState([]);
+  const [activityType, setActivityType] = useState("call");
+  const [activityNote, setActivityNote] = useState("");
+  const [activityFollowupDate, setActivityFollowupDate] = useState("");
   const [notes, setNotes] = useState("");
   const [summary, setSummary] = useState("");
   const [insightsError, setInsightsError] = useState("");
   const [researchError, setResearchError] = useState("");
   const [riskError, setRiskError] = useState("");
   const [meetingNotesError, setMeetingNotesError] = useState("");
+  const [activityError, setActivityError] = useState("");
+  const [activityStatus, setActivityStatus] = useState("");
   const [communicationError, setCommunicationError] = useState("");
   const [communicationStatus, setCommunicationStatus] = useState("");
   const [editing, setEditing] = useState(false);
@@ -180,6 +199,51 @@ export default function LeadDetailPage() {
       setRiskError(err?.message || "Unable to analyze deal risk right now.");
     }
   };
+
+  const handleAddActivity = async () => {
+    if (!activityNote.trim()) {
+      setActivityError("Enter activity notes before saving.");
+      return;
+    }
+
+    try {
+      await createLeadActivity(id, {
+        type: activityType,
+        note: activityNote,
+        followup_date: activityFollowupDate || null,
+      });
+      setActivityNote("");
+      setActivityFollowupDate("");
+      setActivityStatus("Activity saved.");
+      setActivityError("");
+      await fetchActivities();
+      await fetchLead();
+    } catch (err) {
+      setActivityStatus("");
+      setActivityError(err?.message || "Unable to save activity right now.");
+    }
+  };
+
+  const formatTimelineDay = (value) => {
+    if (!value) return "Unknown";
+    const current = new Date(value);
+    const today = new Date();
+    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const startOfCurrent = new Date(current.getFullYear(), current.getMonth(), current.getDate());
+    const diffDays = Math.round((startOfToday - startOfCurrent) / 86400000);
+    if (diffDays === 0) return "Today";
+    if (diffDays === 1) return "Yesterday";
+    return current.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+  };
+
+  const groupedActivities = activities.reduce((groups, activity) => {
+    const key = formatTimelineDay(activity?.created_at);
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(activity);
+    return groups;
+  }, {});
+
+  const lastActivity = activities[0] || null;
 
   const refreshCommunicationViews = async () => {
     await fetchActivities();
@@ -330,6 +394,12 @@ export default function LeadDetailPage() {
                 </p>
               </div>
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-slate-500">Last Activity</p>
+                <p className="mt-1 font-medium text-slate-900">
+                  {lastActivity ? formatTimelineDay(lastActivity.created_at) : "No activity"}
+                </p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                 <p className="text-slate-500">Stage</p>
                 <select
                   value={lead.stage}
@@ -427,6 +497,52 @@ export default function LeadDetailPage() {
               {saveError ? <p className="mt-3 text-sm text-rose-600">{saveError}</p> : null}
             </section>
           )}
+
+          <section className="app-card rounded-2xl p-6">
+            <h2 className="panel-title mb-3">Add Activity</h2>
+
+            <div className="grid gap-3 lg:grid-cols-[190px_1fr_220px_160px] lg:items-start">
+              <select
+                value={activityType}
+                onChange={(e) => setActivityType(e.target.value)}
+                className="rounded-lg border border-slate-200 p-2.5 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
+              >
+                {activityTypeOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+
+              <textarea
+                value={activityNote}
+                onChange={(e) => setActivityNote(e.target.value)}
+                placeholder="Customer interested, asked for brochure"
+                className="min-h-[46px] rounded-xl border border-slate-200 px-3 py-2.5 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
+              />
+
+              <input
+                type="datetime-local"
+                value={activityFollowupDate}
+                onChange={(e) => setActivityFollowupDate(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 p-2.5 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
+              />
+
+              <button
+                onClick={handleAddActivity}
+                className="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800"
+              >
+                Save Activity
+              </button>
+            </div>
+
+            <div className="mt-2">
+              <p className="text-xs text-slate-500">Optional next follow-up date and time.</p>
+            </div>
+
+            {activityError ? <p className="mt-3 text-sm text-rose-600">{activityError}</p> : null}
+            {activityStatus ? <p className="mt-3 text-sm text-emerald-700">{activityStatus}</p> : null}
+          </section>
 
           <section className="app-card rounded-2xl p-6">
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -685,13 +801,27 @@ export default function LeadDetailPage() {
             {!activities.length ? (
               <p className="text-sm text-slate-500">No activities yet.</p>
             ) : (
-              <div className="space-y-2">
-                {activities.map((a) => (
-                  <div key={a.id} className="rounded-lg border border-slate-200 bg-white p-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
-                      {formatActivityLabel(a.activity_type)}
+              <div className="space-y-5">
+                {Object.entries(groupedActivities).map(([label, items]) => (
+                  <div key={label}>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                      {label}
                     </p>
-                    <p className="mt-1 text-sm text-slate-800">{a.description}</p>
+                    <div className="space-y-2">
+                      {items.map((a) => (
+                        <div key={a.id} className="rounded-lg border border-slate-200 bg-white p-3">
+                          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
+                            {formatActivityLabel(a.type || a.activity_type)}
+                          </p>
+                          <p className="mt-1 text-sm text-slate-800">{a.note || a.description}</p>
+                          {a.followup_date ? (
+                            <p className="mt-2 text-xs text-slate-500">
+                              Next follow-up: {new Date(a.followup_date).toLocaleString("en-IN")}
+                            </p>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ))}
               </div>
