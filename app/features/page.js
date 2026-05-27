@@ -89,8 +89,8 @@ export default function FeaturesPage() {
                 <Link href="/demo" className="rounded-2xl bg-cyan-400 px-5 py-3 font-semibold text-slate-950 transition hover:brightness-110">
                   Book Demo
                 </Link>
-                <Link href="/pricing" className="rounded-2xl border border-white/20 px-5 py-3 font-semibold text-white transition hover:bg-white/10">
-                  View Pricing
+                <Link href="/signup" className="rounded-2xl border border-white/20 px-5 py-3 font-semibold text-white transition hover:bg-white/10">
+                  Start Free Trial
                 </Link>
               </div>
             </div>

@@ -38,6 +38,7 @@ export default function DemoPage() {
             <div className="mt-8 rounded-3xl border border-cyan-400/20 bg-cyan-400/10 p-6">
               <p className="text-sm text-cyan-100">Contact us directly</p>
               <p className="mt-2 text-2xl font-semibold text-white">sales@nitiforge.com</p>
+              <p className="mt-2 text-lg font-semibold text-white">Contact: 99120 83337</p>
               <p className="mt-2 text-sm text-slate-300">Share your project count, team size, and current CRM setup to speed up the demo.</p>
             </div>
           </section>
@@ -59,26 +60,13 @@ export default function DemoPage() {
               </div>
             </div>
 
-            <div className="mt-8 rounded-[2rem] border border-dashed border-slate-300 bg-[linear-gradient(135deg,#f8fafc,#fefce8)] p-8 text-center">
-              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Optional Calendly Embed</p>
-              <div className="mt-4 flex h-[420px] items-center justify-center rounded-[1.5rem] border border-slate-200 bg-white">
-                <div>
-                  <p className="text-lg font-semibold text-slate-900">Add your Calendly iframe here</p>
-                  <p className="mt-2 text-sm text-slate-500">Example: `https://calendly.com/your-link`</p>
-                </div>
-              </div>
-            </div>
-
             <div className="mt-8 rounded-[2rem] bg-slate-950 p-6 text-white">
               <p className="text-sm uppercase tracking-[0.16em] text-cyan-300">Fastest next step</p>
               <p className="mt-3 text-xl font-semibold">Email your team size and current lead workflow to `sales@nitiforge.com` and we can tailor the walkthrough.</p>
             </div>
 
             <div className="mt-8 flex flex-wrap gap-3">
-              <Link href="/pricing" className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800">
-                View Pricing
-              </Link>
-              <Link href="/signup" className="rounded-2xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
+              <Link href="/signup" className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800">
                 Start Free Trial
               </Link>
             </div>

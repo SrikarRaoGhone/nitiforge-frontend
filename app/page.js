@@ -52,10 +52,10 @@ export default function Home() {
                   Book Demo
                 </Link>
                 <Link
-                  href="/pricing"
+                  href="/signup"
                   className="rounded-2xl border border-slate-300 bg-white/90 px-6 py-3.5 text-base font-semibold text-slate-800 transition hover:border-slate-400 hover:bg-white"
                 >
-                  View Pricing
+                  Start Free Trial
                 </Link>
               </div>
 

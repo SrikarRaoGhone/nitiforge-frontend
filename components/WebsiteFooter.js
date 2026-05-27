@@ -15,8 +15,8 @@ export default function WebsiteFooter() {
           <Link href="/features" className="hover:text-white">
             Features
           </Link>
-          <Link href="/pricing" className="hover:text-white">
-            Pricing
+          <Link href="/faq" className="hover:text-white">
+            FAQ
           </Link>
           <Link href="/demo" className="hover:text-white">
             Book Demo
